@@ -3,7 +3,8 @@ class CreateComments < ActiveRecord::Migration[7.0]
     create_table :comments do |t|
       t.string :commenter
       t.text :body
-      t.references :article, null: false, foreign_key: true
+      # can not use foreign key constraints
+      t.references :article
 
       t.timestamps
     end

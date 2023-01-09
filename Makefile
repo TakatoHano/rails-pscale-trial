@@ -5,54 +5,39 @@ build_up: build up
 up: migrate
 	docker compose up -d web_app
 
-init: create_instance create_db build up
+init: build up
 
 migrate:
 	docker compose run --rm web_app bundle exec rails db:migrate
 
-create_instance:
-	docker compose up -d spanner
-	docker compose run --rm create_instance
-
-create_db:
-	docker compose run --rm web_app bundle exec rails db:create
-
 build:
 	docker compose build
 
-deploy_production: build_and_push migrate_production deploy_cloud_run
+deploy_production: build_and_push deploy_cloud_run
 
 deploy_cloud_run:
-	gcloud beta run deploy rails-cloud-spanner \
+	gcloud run deploy rails-pscale-trial \
 	--platform managed \
 	--region ${REGION} \
-	--image gcr.io/${PROJECT_ID}/rails-cloud-spanner \
-	--set-env-vars=PROJECT_ID=${PROJECT_ID},SPANNER_INSTANCE=trial-1,RAILS_ENV=production \
-	--set-secrets=RAILS_MASTER_KEY=rails-master-key:latest \
+	--image gcr.io/${PROJECT_ID}/rails-pscale-trial \
+	--set-env-vars=PROJECT_ID=${PROJECT_ID},DATABASE_HOST=${DATABASE_HOST},DATABASE_NAME=${DATABASE_NAME},RAILS_ENV=production \
+	--set-secrets=RAILS_MASTER_KEY=rails-master-key:latest,DATABASE_USERNAME=pscale-db-user:latest,DATABASE_PASSWORD=pscale-db-password:latest \
 	--port 3000 \
 	--concurrency=5 \
 	--max-instances=10 \
-	--cpu-boost \
 	--allow-unauthenticated
 
-migrate_production:
-	gcloud beta run jobs update rails-spanner-migrate \
-	--image gcr.io/${PROJECT_ID}/rails-cloud-spanner \
-	--command=bundle,exec,rails,db:migrate \
-	--region ${REGION} \
-	--set-env-vars=PROJECT_ID=${PROJECT_ID},SPANNER_INSTANCE=trial-1,RAILS_ENV=production \
-	--set-secrets=RAILS_MASTER_KEY=rails-master-key:latest 
-	gcloud beta run jobs execute rails-spanner-migrate --region ${REGION} --wait
+create_migrate_production:
+	pscale deploy-request create ${DATABASE_NAME} ${BRANCH}
+
+deploy_migrate_production:
+	pscale deploy-request deploy ${DATABASE_NAME} ${REQUEST_ID}
 
 build_and_push:
 	gcloud builds submit --config cloudbuild.yaml
 
-# run once only!
-create_instance_production:
-	gcloud spanner instances create trial-1 --config=regional-${REGION} --instance-type=free-instance --description="trial-1"
-
-# run once only! image is gcp default.
-create_migrate_production_job:
-	gcloud beta run jobs create rails-spanner-migrate \
-	--image us-docker.pkg.dev/cloudrun/container/job:latest\
-	--region ${REGION}
+install_pscale:
+	# other ubuntu: https://github.com/planetscale/cli#installation
+	wget https://github.com/planetscale/cli/releases/download/v0.126.0/pscale_0.126.0_linux_amd64.deb
+	apt install ./pscale_0.126.0_linux_amd64.deb
+	rm pscale_0.126.0_linux_amd64.deb

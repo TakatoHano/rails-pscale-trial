@@ -9,7 +9,7 @@ terraform {
     }
   }
   backend "local" {
-    path = "rails-cloud-spanner/terraform.tfstate"
+    path = "rails-pscale-traial/terraform.tfstate"
   }
 
 }

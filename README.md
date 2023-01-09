@@ -1,74 +1,53 @@
 # README
 
-Sample rails app use ruby-spanner-activerecord
+Sample rails app use [PlanetScale](https://planetscale.com/)
+See Official Doc: https://planetscale.com/docs/tutorials/connect-rails-app
 
 # Versions
-## -   Ruby version: 3.1.2 (Rails 7.0.4)
+## - Ruby version: 3.1.3 (Rails 7.0.4)
 ## - Terraform version: 1.2.9 (google 4.36.0)
+## - [PlanetScale CLI](https://github.com/planetscale) version: 0.126.0
 
-# For Developper
+# For Develop
 ## Set Env
 ```sh
 # for terraforn and gcloud cli
 export GOOGLE_APPLICATION_CREDENTIALS=YOUR_CREDENTIAL
 export GOOGLE_PROJECT=YOUR_PROJECT
 export PROJECT_ID=$GOOGLE_PROJECT
-# spanner free-trial instance support region
-# us-east5, europe-west3, asia-south2, asia-southeast2
-export REGION=us-east5
+# Recommend a region that is close to the corresponding region of Planet Scale
+export REGION=asia-northeast1
 export RAILS_MASTER_KEY=`cat config/master.key | tr -d \n `
+# Planet Scale`s ENV(from your develop branch)
+export RAILS_MASTER_KEY
+export DATABASE_NAME
+export DATABASE_USERNAME
+export DATABASE_HOST
+export DATABASE_PASSWORD
 ```
-
-## Database creation & initialization: `make init`
-
 ## Start Service(local): `make (up) `
-
 ---
 # Create GCP Recources
-## Create Spanner free-trial-instance (run once)
-```sh
-make create_instance_production
-```
 ## Create resource by Terraform
 ### Run on infra dir
 ```sh
-cd infra && terraform init
+cd infra && make init
 ```
 
-### 1. Comment out secret resources
-```hcl
-# comment out
-data "google_kms_secret" "rails_master_key" {
-  crypto_key = google_kms_crypto_key.crypto_key.id
-  # Must Replace!: echo -n $RAILS_MASTER_KEY | gcloud kms encrypt --location asia-northeast1 --keyring key-ring --key crypto-key --plaintext-file - --ciphertext-file - | base64
-  ciphertext = "CiQAZ4zH06xt5lU6j2Q4QRsojbdH1RCwg9KJLJt3blR+2noYcbYSSQDLeR9jDCTyztjOnaxTLsvcBjP82GLLCIRWfK5RtzAYt/x4IySg6Awot82dFLuOrYi3/zEk6W8rR+iEnrddxhPQDbJAlqAa3uU="
-}
-
-resource "google_secret_manager_secret" "rails_master_key" {
-  project   = data.google_project.default.project_id
-  secret_id = "rails-master-key"
-
-  replication {
-    automatic = true
-  }
-}
-
-resource "google_secret_manager_secret_version" "rails_master_key" {
-  secret      = google_secret_manager_secret.rails_master_key.id
-  secret_data = data.google_kms_secret.rails_master_key.plaintext
-}
-```
+### 1. Comment out secret resources(infra/secrets.tf)
 
 ### 2. Create resource exclude secret
 ```sh
-terraform plan
-terraform apply -auto-approve
+make plan
+make apply -auto-approve
 ```
-### 3. Encrypt your rails master key 
+### 3. Encrypt your production secrets: rails_master_key, pscale_db_user, pscale_db_password
+e.g)
 ```sh
-echo -n $RAILS_MASTER_KEY | gcloud kms encrypt --location asia-northeast1 --keyring key-ring --key crypto-key --plaintext-file - --ciphertext-file - | base64
+echo -n $RAILS_MASTER_KEY | gcloud kms encrypt --location asia-northeast1 --keyring ring1 --key crypto1 --plaintext-file - --ciphertext-file - | base64
 ```
 ### 4. Set google_kms_secret, and uncomment
+e.g)
 ```hcl
 data "google_kms_secret" "rails_master_key" {
   crypto_key = google_kms_crypto_key.crypto_key.id
@@ -78,16 +57,17 @@ data "google_kms_secret" "rails_master_key" {
 ```
 ### 5. Create secret
 ```sh
-terraform plan
-terraform apply -auto-approve
+make
+make apply -auto-approve
 ```
 
 ## Deploy App to GCP Cloud Run
-### Create Migrate Cloud Run Job(Run once)
+### Create and Deploy Migrate on PlanetScale
 ```sh
-make create_migrate_production_job
+make create_migrate_production BRANCH={YOUR_DEVELOP_BRANCH}
+make deploy_migrate_production REQUEST_ID={ABOVE_REQUEST_ID}
 ```
-### Deploy(image build & push -> migrate -> service deploy)
+### Deploy(image build & push -> service deploy)
 ```sh
 make deploy_production
 ```

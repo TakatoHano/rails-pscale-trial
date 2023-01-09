@@ -5,17 +5,18 @@
 #   gem "sqlite3"
 #
 default: &default
-  adapter: spanner
+  adapter: mysql2
+  database: <%= ENV.fetch("DATABASE_NAME") %>
+  username: <%= ENV.fetch("DATABASE_USERNAME") %>
+  host:  <%= ENV.fetch("DATABASE_HOST") %>
+  password: <%= ENV.fetch("DATABASE_PASSWORD") %>
   pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
-  project: <%= ENV.fetch("PROJECT_ID") { "" } %>
-  instance: <%= ENV.fetch("SPANNER_INSTANCE") { "" } %>
+  ssl_mode: verify_identity
+  sslca: "/etc/ssl/certs/ca-certificates.crt"
   timeout: 5000
 
 development:
   <<: *default
-  emulator_host: <%= ENV.fetch("SPANNER_HOST") { "" } %>
-  database: spanner_test_dev
 
 production:
   <<: *default
-  database: spanner_test
